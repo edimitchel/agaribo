@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<!-- saved from url=(0032)http://149.202.42.124/socket/v2/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <title>Super Chat temps réel !</title>
+        <style>
+            #zone_chat strong {
+                color: white;
+                background-color: black;
+                padding: 2px;
+            }
+            canvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+            }
+
+            #list-people {
+                position: absolute;
+                left: 0;
+                bottom: 0;
+                min-height: 100px;
+                width: 150px;
+                z-index: 10;
+                background-color: rgba(255, 255, 255, 0.2);
+            }
+        </style>
+        <script type="text/javascript">
+
+        </script>
+    </head>
+    <body>
+
+    	<h1>Agaribo</h1>
+        <canvas id="myCanvas" width="800" height="600" style="border:1px solid #d3d3d3;">Your browser does not support the HTML5 canvas tag.</canvas>
+        <script src="js/lib/socket.io.js"></script>
+        <script src="js/lib/jquery-1.10.1.min.js"></script>
+        <script src="js/app.js"></script>
+        <script async src="js/models.js"></script>
+        <script async src="js/main.js"></script>
+        <script>
+
+/*
+        	var ip = '149.202.42.124'
+            var socket = io.connect('http://'+ip+':8080');
+            var doc = document;
+            var sizeCell =10;
+            var MR = Math.random;
+            var c = doc.getElementById("myCanvas");
+            var player_size =15;
+            var cell_size = 5;
+            var ctx = c.getContext("2d");
+            var size_mvt =1;
+            var speed = 15;
+            var speed_bullet = 2000;
+            var angle = "";
+            var canvas = document.getElementById('myCanvas');
+            var context = canvas.getContext('2d');
+            var nbr_cell=50;
+*/
+            /*var cell=[];
+            // Partie générator cell //
+            for(var i =0; i<nbr_cell;i++){
+                //console.log(i);
+                x_cell =5 + (MR() * (800 - 10))|0;
+                y_cell =5 + (MR() * (600 - 10))|0;
+                ctx.fillStyle=getRandomColor();
+                cell.push({x_cell,y_cell});
+                ctx.fillRect(x_cell, y_cell, cell_size, cell_size);
+
+            }*/
+
+
+            /*// On demande le pseudo au visiteur...
+            var pseudo = prompt('Quel est votre pseudo ?');
+            // Et on l'envoie avec le signal "petit_nouveau" (pour le différencier de "message") avec ces coordonées
+            var X = 5 + (MR() * (800 - 10))|0;
+            var Y = 5 + (MR() * (600 - 10))|0;
+
+            var color = getRandomColor();
+            socket.emit('petit_nouveau', pseudo,X,Y,color,player_size,speed);
+            ctx.fillStyle=color;
+            ctx.fillRect(X*size_mvt, Y*size_mvt, player_size, player_size);
+            // On affiche une boîte de dialogue quand le serveur nous envoie un "message"
+            socket.on('message', function(message) {
+                $('#alert').append(message+'<br/>');
+            })
+
+            socket.on('newCharacter', function(data) {
+                //socket.emit('message', 'pop');
+                $("#list-people").append("<li style='color:"+data.color+"'>"+data.pseudo+"</li>");
+            })
+
+            socket.on('generate_cell', function(data) {
+               for(var i =0; i<nbr_cell;i++){
+                    ctx.fillStyle= data[i].color;
+                    ctx.fillRect(data[i].x, data[i].y, cell_size, cell_size);
+                }
+            })
+
+            socket.on('remove_player_cell', function(data) {
+               ctx.clearRect(data.x_cell-1,data.y_cell-1,cell_size+2,cell_size+2);
+               speed = data.speed;
+               player_size = data.size;
+            })
+
+            socket.on('remove_cell', function(data) {
+               ctx.clearRect(data.x_cell-1,data.y_cell-1,cell_size+2,cell_size+2);
+            })
+
+            socket.on('move', function(data) {
+                X = data.x;
+                Y = data.y;
+                ctx.fillStyle=data.color;
+                ctx.clearRect(data.old_x*size_mvt-1,data.old_y*size_mvt-1,player_size+2,player_size+2);
+                ctx.fillRect(data.x*size_mvt, data.y*size_mvt, player_size, player_size);
+
+                //checkCollision();
+                socket.emit('checkCollision', 'test');
+            })
+
+            /*function checkCollision(){
+                for(var j=0;j<nbr_cell;j++){
+                    if((cell[j].x_cell >= X + player_size)      // trop à droite
+                    || (cell[j].x_cell + cell_size <= X) // trop à gauche
+                    || (cell[j].y_cell >= Y + player_size) // trop en bas
+                    || (cell[j].y_cell + cell_size <= Y)){  // trop en haut
+                          //console.log("pas contact");
+                    }else{
+                          console.log("contact");
+                          eraseCell(j);
+                      }
+                }
+            } */
+
+/*
+            function eraseCell(j){
+                ctx.clearRect(cell[j].x_cell-1,cell[j].y_cell-1,cell_size+2,cell_size+2);
+                player_size++;
+                speed++;
+                generateNewCell(j);
+            }
+
+            function generateNewCell(j){
+                x_cell =5 + (MR() * (800 - 10))|0;
+                y_cell =5 + (MR() * (600 - 10))|0;
+                cell[j] = ({x_cell,y_cell});
+                ctx.fillStyle=getRandomColor();
+                ctx.fillRect(x_cell, y_cell, cell_size, cell_size);
+            }
+
+            function generateMove(){
+				if((-112.5 < angle) && (angle < -67.5)){
+					socket.emit('move', 'h');
+				}
+				if((-67.5 < angle) && (angle < -22.5)){
+					socket.emit('move', 'hd');
+				}
+				if((-22.5 < angle) && (angle < 22.5)){
+					socket.emit('move', 'd');
+				}
+				if((22.5 < angle) && (angle < 67.5)){
+					socket.emit('move', 'bd');
+				}
+				if((67.5 < angle) && (angle < 112.5)){
+					socket.emit('move', 'b');
+				}
+				if((112.5 < angle) && (angle < 157.5)){
+					socket.emit('move', 'bg');
+				}
+				if((-157.5 < angle) && (angle < -112.5)){
+					socket.emit('move', 'hg');
+				}
+				if((157.5 < angle) || (angle < -157.5)){
+					socket.emit('move', 'g');
+				}
+
+            }
+
+
+
+            var refreshPosition='';
+            $( "#myCanvas" ).mouseover(function() {
+				refreshPosition = setInterval(generateMove, speed);
+			});
+
+			$( "#myCanvas" ).mouseout(function() {
+			  clearInterval(refreshPosition);
+			});
+            window.onload = function() {
+                window.onkeydown = function(event) {
+                    var e = event || window.event;
+                    var key = e.which || e.keyCode;
+                    switch(key) {
+                        case 38 : //haut
+                            socket.emit('move', 'h');
+                            break;
+                        case 40 : //bas
+                            socket.emit('move', 'b');
+                            break;
+                        case 37 : //gauche
+                            socket.emit('move', 'g');
+                            break;
+                        case 39 : //droite
+                            socket.emit('move', 'd');
+                            break;
+                        default :
+                            return true;
+                    }
+
+                    return false;
+                }
+            }
+
+
+
+            function dump(obj) {
+                var out = '';
+                for (var i in obj) {
+                    out += i + ": " + obj[i] + "\n";
+                }
+                alert(out);
+            }
+
+            function getRandomColor() {
+			    var letters = '0123456789ABCDEF'.split('');
+			    var color = '#';
+			    for (var i = 0; i < 6; i++ ) {
+			        color += letters[Math.floor(Math.random() * 16)];
+			    }
+			    return color;
+			}
+
+    	    function writeMessage(canvas, message) {
+    	       var context = canvas.getContext('2d');
+    	       context.clearRect(0, 0, canvas.width, canvas.height);
+    	       context.font = '18pt Calibri';
+    	       context.fillStyle = 'black';
+    	       context.fillText(message, 10, 25);
+    	    }
+    	    function getMousePos(canvas, evt) {
+    	        var rect = canvas.getBoundingClientRect();
+    	        return {
+    	          x: evt.clientX - rect.left,
+    	          y: evt.clientY - rect.top
+    	        };
+    	    }
+
+
+	        canvas.addEventListener('mousemove', function(evt) {
+                var mousePos = getMousePos(canvas, evt);
+	            angle = getAngle({x:X*size_mvt, y:Y*size_mvt},mousePos);
+	        }, false);
+
+    	    function getAngle(p1, p2){
+                //console.log('puce('+p1.x+','+p1.y+')'+'souris('+p2.x+','+p2.y+')');
+    			return Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+    		}
+
+            function toRadians (angle) {
+                return angle * (Math.PI / 180);
+            }
+
+            */
+	    </script>
+        <p id="alert"></p>
+        <ul id="list-people"></ul>
+
+    <script type="text/javascript">
+    document.oncontextmenu = null;
+    document.onselectstart = null;
+    document.onmousedown = null;
+    document.onclick = null;
+    document.oncopy = null;
+    document.oncut = null;
+    var elements = document.getElementsByTagName('*');
+    for (var i = 0; i < elements.length; i++) {
+        elements[i].oncontextmenu = null;
+        elements[i].onselectstart = null;
+        elements[i].onmousedown = null;
+        elements[i].oncopy = null;
+        elements[i].oncut = null;
+    }
+    function preventShareThis() {
+        document.getSelection = window.getSelection = function() {
+            return {isCollapsed: true};
+        }
+    }
+    </script>
+</body></html>
