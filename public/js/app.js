@@ -17,9 +17,9 @@
       players: {},
       currentPlayer: null,
       moveCP: function (X, Y) {
-        if (this.currentPlayer !== null) {
+        if (this.currentPlayer !== null && (X != 0 || Y != 0)) {
           // Calculer la puissance et l'angle avec X et Y
-          var power = Math.max(Application.config.player.minSpeed, Math.min(Math.sqrt(Math.pow(X, 2) + Math.pow(Y, 2)), this.currentPlayer.getSpeed()));
+          var power = Math.min(Math.sqrt(Math.pow(X, 2) + Math.pow(Y, 2)), this.currentPlayer.getSpeed());
           var angle = Math.atan2(Y, X);
 
           var deltaX = Math.cos(angle) * power;
@@ -63,7 +63,6 @@
     init: function (canvasSelector, config) {
       this.config = this.defaultsConfig;
       $.extend(true, this.config, config);
-      console.dir(this.config);
 
       var canvas = document.querySelector(canvasSelector);
       canvas.width = window.innerWidth;
@@ -187,24 +186,24 @@
           setTimeout(generateDots, 1000);
         })();
       }, delay);
-    }
-
-    ,
+    },
     paint: function () {
-      var that = Application
-          , timestamp = new Date().getTime()
-          , diffTime = timestamp - (this.lastTimeStamp ? this.lastTimeStamp : 0);
+      var that = Application,
+          timestamp = new Date().getTime(),
+          diffTime = timestamp - (this.lastTimeStamp ? this.lastTimeStamp : 0);
 
       this.lastTimeStamp = timestamp;
 
       that.context.fillStyle = 'white';
       that.context.fillRect(0, 0, that.canvas.width, that.canvas.height);
 
-      // Mouse tracking
-      var diffX = that.mousePosition.X - that.game.currentPlayer.position.X,
-          diffY = that.mousePosition.Y - that.game.currentPlayer.position.Y;
+      if (that.game.currentPlayer !== null) {
+        // Mouse tracking
+        var diffX = that.mousePosition.X - that.game.currentPlayer.position.X,
+            diffY = that.mousePosition.Y - that.game.currentPlayer.position.Y;
 
-      that.game.moveCP(diffX, diffY);
+        that.game.moveCP(diffX, diffY);
+      }
 
       // PAINT Dots
 
@@ -234,31 +233,30 @@
 
       // PAINT CURRENT PLAYER
 
-      var ratio = diffTime / 1000;
-      that.game.currentPlayer.move(ratio);
-      that.emit('move', that.game.currentPlayer.id, that.game.currentPlayer.position, that.game.currentPlayer.size, that.game.currentPlayer.getSpeed());
+      if (that.game.currentPlayer !== null) {
+        var ratio = diffTime / 1000;
+        that.game.currentPlayer.move(ratio);
+        that.emit('move', that.game.currentPlayer.id, that.game.currentPlayer.position, that.game.currentPlayer.size, that.game.currentPlayer.getSpeed());
 
-      that.models.figure(that.config.player.figure,
-          that.game.currentPlayer.position.X,
-          that.game.currentPlayer.position.Y,
-          that.game.currentPlayer.size,
-          that.game.currentPlayer.color, {
-            border: that.config.player.border
-          }
-      );
+        that.models.figure(that.config.player.figure,
+            that.game.currentPlayer.position.X,
+            that.game.currentPlayer.position.Y,
+            that.game.currentPlayer.size,
+            that.game.currentPlayer.color, {
+              border: that.config.player.border
+            }
+        );
+      }
 
       if (that.running)
         requestAnimationFrame(Application.paint);
-    }
-    ,
+    },
     stop: function () {
       this.running = false;
-    }
-    ,
+    },
     on: function (name, callback) {
       return this.socket.on(name, callback);
-    }
-    ,
+    },
     emit: function () {
       return this.socket.emit.apply(this.socket, arguments);
     }

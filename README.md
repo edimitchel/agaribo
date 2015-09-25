@@ -24,6 +24,6 @@ This project is available [on my web page](http://vps.micheledighoffer.fr:8080).
 * Manage colision between players
 * Improve growth of player dot
 * Improve prompt modal
-
 * Improve animation
 * Improve performance
+* Check speed of current player

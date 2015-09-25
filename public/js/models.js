@@ -24,15 +24,13 @@
         if (!ratio)
           ratio = 1;
 
-        this.position.X += this.delta.X * ratio;
-        this.position.Y += this.delta.Y * ratio;
-
-        this.position.X = app.models.utils.inBounds(this.position.X, app.canvas.width);
-        this.position.Y = app.models.utils.inBounds(this.position.Y, app.canvas.height);
+        this.position.X = app.models.utils.inBounds(this.position.X + this.delta.X * ratio, app.canvas.width);
+        this.position.Y = app.models.utils.inBounds(this.position.Y + this.delta.Y * ratio, app.canvas.height);
       };
 
       this.getSpeed = function () {
-        return app.config.player.speedReference - (this.size / app.config.player.minScore);
+        return Math.max(app.config.player.minSpeed,
+            app.config.player.speedReference - (5 * (this.size / app.config.player.minScore)));
       }
     },
     dot: function (posX, posY) {
