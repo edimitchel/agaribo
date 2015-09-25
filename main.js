@@ -3,7 +3,6 @@ var fs = require('fs');
 var path = require('path');
 var colors = require('colors');
 var md5 = require('md5');
-var io = require('socket.io').listen(server);
 
 colors.setTheme({
   input: 'grey',
@@ -47,6 +46,8 @@ var server = http.createServer(function (req, res) {
       page404 = localFolder + '404.html';
   getFile((localFolder + folderName + '/' + fileName), res, page404);
 });
+
+var io = require('socket.io').listen(server);
 
 io.sockets.on('connection', function (socket, pseudo) {
 
