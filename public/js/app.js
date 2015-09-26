@@ -16,6 +16,14 @@
       dots: [],
       players: {},
       currentPlayer: null,
+      isCrtPlr: function (player) {
+        if(this.currentPlayer == null)
+          return false;
+
+        if (typeof player != 'object')
+          player = {id: player};
+        return this.currentPlayer.id == player.id;
+      },
       moveCP: function (X, Y) {
         if (this.currentPlayer !== null && (X != 0 || Y != 0)) {
           // Calculer la puissance et l'angle avec X et Y
@@ -83,124 +91,158 @@
 
       return this;
     },
-    start: function (data, delay) {
+    start: function (functionCreation, delay) {
+      if (!functionCreation) {
+        if (!this.createGameFunction)
+          throw new Error('La fonction de création doit être implémentée.');
+        else
+          functionCreation = this.createGameFunction;
+      }
+
+      var that = this;
       if (this.context == null || this.socket == null)
         throw new Error('L\'application ne peut démarrée : problème de canevas ou de web socket.');
 
-      if (data.player) {
-        var player = data.player;
-        this.emit('new_player', player.name, player.position.X, player.position.Y, player.color, player.size);
+      if (!that.createGameFunction)
+        that.createGameFunction = functionCreation;
 
-        this.on('rtn_new_player', function (data) {
+      that.game.currentPlayer = null;
+      functionCreation(function (pseudo) {
+        var player = new Application.models.player(pseudo);
+        that.emit('connect_player', player.name, player.getPosition().x, player.getPosition().y, player.color, player.size);
+
+        that.on('rtn_connect_player', function (data) {
           player.setId(data.id);
           Application.game.currentPlayer = player;
+          onPlayerChange(player);
+
           for (var iP in data.players) {
-            if (!data.players.hasOwnProperty(iP)) {
+            var p = data.players[iP];
+            if (!p || Application.game.isCrtPlr(p)) {
               continue;
             }
-            var p = data.players[iP];
-            if (p.id == player.id)
-              continue;
-
             var yetPlayer = new Application.models.player(p.pseudo, p.color, {
               X: p.x,
               Y: p.y
             });
             yetPlayer.setId(p.id);
+            yetPlayer.size = p.size;
             onPlayerChange(yetPlayer);
+            Application.game.players[yetPlayer.id] = yetPlayer;
           }
 
-          this.on('move', function (data) {
+          that.on('move', function (data) {
             if (!Application.game.players[data.id] || data.id == player.id)
               return;
 
-            Application.game.players[data.id].position = {
-              X: data.x,
-              Y: data.y
-            };
+            Application.game.players[data.id].setPosition(data.x, data.y);
             Application.game.players[data.id].size = data.size;
           });
         });
 
-        Application.mousePosition.X = player.position.X;
-        Application.mousePosition.Y = player.position.Y;
-      }
+        Application.mousePosition.X = player.getPosition().x;
+        Application.mousePosition.Y = player.getPosition().y;
 
-      window.onmousemove = function (evt) {
-        Application.mousePosition.X = evt.pageX - Application.canvas.offsetLeft;
-        Application.mousePosition.Y = evt.pageY - Application.canvas.offsetTop;
-      };
+        window.onmousemove = function (evt) {
+          Application.mousePosition.X = evt.pageX - Application.canvas.offsetLeft;
+          Application.mousePosition.Y = evt.pageY - Application.canvas.offsetTop;
+        };
 
-      function onPlayerChange(player, id) {
-        if (player == null) {
-          // Supprimer user
-          if (Application.config.view.listingPlayersSelector != null) {
-            var list = document.querySelector(Application.config.view.listingPlayersSelector);
-            list.removeChild(list.querySelector('[data-id="' + id + '"]'));
-          }
-        } else {
-
-          if (Application.config.view.listingPlayersSelector != null) {
-            var list = document.querySelector(Application.config.view.listingPlayersSelector);
-            if (null !== list) {
-              var itemEl = document.createElement('li');
-              itemEl.innerHTML = player.name;
-              itemEl.setAttribute('data-id', player.id);
-              itemEl.style.color = player.color;
-              list.appendChild(itemEl);
+        function onPlayerChange(player, id) {
+          var list;
+          if (player == null) {
+            // Supprimer user
+            if (Application.config.view.listingPlayersSelector != null) {
+              list = document.querySelector(Application.config.view.listingPlayersSelector);
+              if (null !== list) {
+                list.removeChild(list.querySelector('[data-id="' + id + '"]'));
+              } else {
+                throw new Error('La liste des joueurs est introuvable.');
+              }
+            }
+          } else {
+            if (Application.config.view.listingPlayersSelector != null) {
+              list = document.querySelector(Application.config.view.listingPlayersSelector);
+              if (null !== list) {
+                var itemEl = document.createElement('li');
+                itemEl.innerHTML = player.name;
+                itemEl.setAttribute('data-id', player.id);
+                itemEl.style.color = player.color;
+                list.appendChild(itemEl);
+              } else {
+                throw new Error('La liste des joueurs est introuvable.');
+              }
             }
           }
-          if (player.id != Application.game.currentPlayer.id) {
-            Application.game.players[player.id] = player;
+        }
+
+        that.on('player_join', function (p) {
+          if (Application.game.isCrtPlr(p))
+            return;
+
+          var nPlayer = new Application.models.player(p.pseudo, p.color, {
+            x: p.x,
+            y: p.y
+          });
+          nPlayer.setId(p.id);
+          nPlayer.size = p.size;
+          Application.game.players[nPlayer.id] = nPlayer;
+          onPlayerChange(nPlayer);
+        });
+
+        that.on('benefice_after_collision', function (size) {
+          that.game.currentPlayer.size = size;
+        });
+
+        that.on('player_fail', deletePlayer);
+        that.on('player_left', deletePlayer);
+
+        function deletePlayer(id) {
+          if (Application.game.isCrtPlr(id)) {
+            alert('Vous avez été mangé.');
+            that.start();
+          }
+
+          if (Application.game.players.hasOwnProperty(id)) {
+            delete Application.game.players[id];
+            onPlayerChange(null, id);
           }
         }
-      }
 
-      this.on('player_join', function (player) {
-        var nPlayer = new Application.models.player(player.pseudo, player.color, {
-          X: player.x,
-          Y: player.y
-        });
-        nPlayer.setId(player.id);
-        onPlayerChange(nPlayer);
+        that.running = true;
+        setTimeout(function () {
+          Application.paint();
+
+          // Générer les points
+          (function generateDots() {
+            var area = Application.canvas.width * Application.canvas.height;
+            var count = Application.config.dot.max * (area / Application.config.dot.areaMax) - Application.game.dots.length;
+            count = count < 0 ? 0 : count;
+            for (var i = 0; i < count; i++) {
+              setTimeout(function () {
+                Application.game.dots.push(new Application.models.dot());
+              }, 1000 * Math.random());
+            }
+            setTimeout(generateDots, 1000);
+          })();
+        }, delay);
       });
-
-      this.on('player_left', function (id) {
-        if (Application.game.players.hasOwnProperty(id)) {
-          delete Application.game.players[id];
-          onPlayerChange(null, id);
-        }
-      });
-
-      this.running = true;
-      setTimeout(function () {
-        Application.paint();
-
-        // Générer les points
-        (function generateDots() {
-          var area = Application.canvas.width * Application.canvas.height;
-          var count = Application.config.dot.max * (area / Application.config.dot.areaMax) - Application.game.dots.length;
-          count = count < 0 ? 0 : count;
-          for (var i = 0; i < count; i++)
-            Application.game.dots.push(new Application.models.dot());
-          setTimeout(generateDots, 1000);
-        })();
-      }, delay);
     },
     paint: function () {
       var that = Application,
           timestamp = new Date().getTime(),
-          diffTime = timestamp - (this.lastTimeStamp ? this.lastTimeStamp : 0);
+          diffTime = timestamp - (this.lastTimeStamp ? this.lastTimeStamp : timestamp);
 
       this.lastTimeStamp = timestamp;
+      this.sumDiff = (this.sumDiff ? this.sumDiff : 0 ) + diffTime;
 
       that.context.fillStyle = 'white';
       that.context.fillRect(0, 0, that.canvas.width, that.canvas.height);
 
       if (that.game.currentPlayer !== null) {
         // Mouse tracking
-        var diffX = that.mousePosition.X - that.game.currentPlayer.position.X,
-            diffY = that.mousePosition.Y - that.game.currentPlayer.position.Y;
+        var diffX = that.mousePosition.X - that.game.currentPlayer.getPosition().x,
+            diffY = that.mousePosition.Y - that.game.currentPlayer.getPosition().y;
 
         that.game.moveCP(diffX, diffY);
       }
@@ -210,25 +252,38 @@
       for (var idots = 0; idots < that.game.dots.length; idots++) {
         var dot = that.game.dots[idots];
 
-        // Compute collision with dots and currentPlayer
-        if (that.models.utils.getDistance(dot.position, that.game.currentPlayer.position) < (that.game.currentPlayer.size / 2)) {
+        // Calculer les collisions entre le joueur courant et les points.
+        if (that.game.currentPlayer != null && that.models.utils.getDistance(dot.getPosition(), that.game.currentPlayer.getPosition()) < (that.game.currentPlayer.size / 2)) {
           that.game.currentPlayer.size += dot.size / 6;
           that.game.dots.splice(idots, 1);
           idots--;
           continue;
         }
 
-        that.models.figure(dot.figure, dot.position.X, dot.position.Y, dot.size, dot.color);
+        that.models.figure(dot.figure, dot.getPosition().x, dot.getPosition().y, dot.size, dot.color);
       }
 
       // PAINT Players
 
+      var collision;
+
       for (var idP in that.game.players) {
         var p = that.game.players[idP];
-        if (p.id != that.game.currentPlayer.id)
-          that.models.figure(that.config.player.figure, p.position.X, p.position.Y, p.size, p.color, {
+        if (that.game.currentPlayer == null || !that.game.isCrtPlr(p)) {
+
+          // Calculer les collisions entre joueurs
+          if (that.game.currentPlayer != null) {
+            var biggerSize = Math.max(that.game.currentPlayer.size / 2, p.size / 2),
+                distance = that.models.utils.getDistance(p.getPosition(), that.game.currentPlayer.getPosition());
+            if (distance < biggerSize) {
+              collision = p.id;
+            }
+          }
+
+          that.models.figure(that.config.player.figure, p.getPosition().x, p.getPosition().y, p.size, p.color, {
             border: that.config.player.border
           });
+        }
       }
 
       // PAINT CURRENT PLAYER
@@ -236,11 +291,16 @@
       if (that.game.currentPlayer !== null) {
         var ratio = diffTime / 1000;
         that.game.currentPlayer.move(ratio);
-        that.emit('move', that.game.currentPlayer.id, that.game.currentPlayer.position, that.game.currentPlayer.size, that.game.currentPlayer.getSpeed());
+
+        // Émettre toutes les 50ms
+        if (this.sumDiff > 50) {
+          that.emit('move', that.game.currentPlayer.id, that.game.currentPlayer.getPosition(), that.game.currentPlayer.size, that.game.currentPlayer.getSpeed(), collision);
+          this.sumDiff = 0;
+        }
 
         that.models.figure(that.config.player.figure,
-            that.game.currentPlayer.position.X,
-            that.game.currentPlayer.position.Y,
+            that.game.currentPlayer.getPosition().x,
+            that.game.currentPlayer.getPosition().y,
             that.game.currentPlayer.size,
             that.game.currentPlayer.color, {
               border: that.config.player.border

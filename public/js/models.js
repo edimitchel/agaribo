@@ -2,12 +2,22 @@
   app.models = {
     player: function (name, color, position) {
       this.name = name;
-      this.position = position ? {
-        X: position.X,
-        Y: position.Y
-      } : {
-        X: new app.models.canvas().getCenter().X,
-        Y: new app.models.canvas().getCenter().Y
+      this.position = {};
+      this.setPosition = function (x, y) {
+        if (x == undefined || y == undefined) {
+          this.position.X = new app.models.canvas().getCenter().X;
+          this.position.Y = new app.models.canvas().getCenter().Y;
+        } else {
+          this.position.X = x;
+          this.position.Y = y;
+        }
+      };
+
+      this.getPosition = function () {
+        return {
+          x: Number(Number(this.position.X).toFixed(2)),
+          y: Number(Number(this.position.Y).toFixed(2))
+        }
       };
       this.delta = {
         X: 0,
@@ -24,27 +34,44 @@
         if (!ratio)
           ratio = 1;
 
-        this.position.X = app.models.utils.inBounds(this.position.X + this.delta.X * ratio, app.canvas.width);
-        this.position.Y = app.models.utils.inBounds(this.position.Y + this.delta.Y * ratio, app.canvas.height);
+        this.setPosition(app.models.utils.inBounds(this.getPosition().x + this.delta.X * ratio, app.canvas.width),
+            app.models.utils.inBounds(this.getPosition().y + this.delta.Y * ratio, app.canvas.height));
       };
 
       this.getSpeed = function () {
+        // TODO Améliorer la vitesse
         return Math.max(app.config.player.minSpeed,
             app.config.player.speedReference - (5 * (this.size / app.config.player.minScore)));
-      }
+      };
+
+      if(position)
+        this.setPosition(position.x, position.Y);
+      else
+        this.setPosition();
     },
     dot: function (posX, posY) {
-      if (!posX || !poxY) {
-        posX = new app.models.canvas().getRandom().X;
-        posY = new app.models.canvas().getRandom().Y;
-      }
-      this.position = {
-        X: posX,
-        Y: posY
+      this.position = {};
+      this.setPosition = function (x, y) {
+        if (x == undefined && y == undefined) {
+          this.position.X = new app.models.canvas().getRandom().X;
+          this.position.Y = new app.models.canvas().getRandom().Y;
+        } else {
+          this.position.X = x;
+          this.position.Y = y;
+        }
+      };
+
+      this.getPosition = function () {
+        return {
+          x: this.position.X,
+          y: this.position.Y
+        }
       };
       this.color = app.models.randomColor();
       this.size = app.config.dot.defaultSize;
       this.figure = app.config.dot.figure == null ? ('circle rect'.split(' '))[(Math.floor(Math.random() * 100)) % 2] : app.config.dot.figure;
+
+      this.setPosition(posX, posY);
     },
     canvas: function (width, height) {
       if (!width && !height) {
@@ -108,7 +135,7 @@
     },
     utils: {
       getDistance: function (pos1, pos2) {
-        return Math.sqrt(Math.pow(pos1.X - pos2.X, 2) + Math.pow(pos1.Y - pos2.Y, 2));
+        return Math.sqrt(Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2));
       },
       inBounds: function (value, min, max) {
         if (!max) {
